@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node --env-file=.env server.js",
+    "start": "node server.js",
     "dev": "node --watch --env-file=.env server.js",
     "db:schema": "psql -d auth_system -f ./db/schema.sql",
     "db:seed": "node --env-file=.env db/seed.js",
-    "db:reset": "npm run db:schema && npm run db:seed"
+    "db:reset": "npm run db:schema && npm run db:seed",
+    "prod:schema": "dotenv -e .env -- psql $PROD_URL -f ./db/schema.sql",
+    "prod:reset": "npm run prod:schema && npm run db:seed"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +27,7 @@
     "#*": "./*.js"
   },
   "devDependencies": {
-    "@faker-js/faker": "^9.8.0"
+    "@faker-js/faker": "^9.8.0",
+    "dotenv-cli": "^10.0.0"
   }
 }
