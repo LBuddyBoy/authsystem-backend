@@ -1,8 +1,3 @@
-DROP DATABASE IF EXISTS auth_system;
-CREATE DATABASE auth_system;
-
-\c auth_system;
-
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 DROP TABLE IF EXISTS replies;

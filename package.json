@@ -1,14 +1,14 @@
 {
   "name": "authsystem",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch --env-file=.env server.js",
     "db:schema": "psql -d auth_system -f ./db/schema.sql",
     "db:seed": "node --env-file=.env db/seed.js",
     "db:reset": "npm run db:schema && npm run db:seed",
-    "prod:schema": "dotenv -e .env -- psql $PROD_URL -f ./db/schema.sql",
+    "prod:schema": "dotenv -e .env -- sh -c 'psql ${PROD_URL} -f ./db/schema.sql'",
     "prod:reset": "npm run prod:schema && npm run db:seed"
   },
   "keywords": [],

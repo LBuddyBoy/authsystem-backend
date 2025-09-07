@@ -1,14 +1,13 @@
 import express from "express";
-import { useAuth } from "./utils.js";
 import {
   getAccountById,
   getAccounts,
-  getAccountsByField,
   updateAccount,
 } from "#db/query/accounts";
 import getStats from "#db/query/stats";
 import requireAccount from "#middleware/requireAccount";
 import requirePermission from "#middleware/requirePermission";
+import requireQuery from "#middleware/requireQuery";
 
 const router = express.Router();
 
@@ -27,27 +26,17 @@ router.get("/", async (req, res) => {
   res.status(200).json("Access Granted");
 });
 
-router.get("/accounts/search/:field/:query", async (req, res) => {
-  const { field, query } = req.params;
-
-  if (!query) {
-    return res.status(400).json("Couldn't find a provided query.");
-  }
-
-  res.status(200).json(await getAccountsByField(field, query));
-});
-
-router.get("/accounts/:limit/:cursor", async (req, res) => {
-  const limit = Number(req.params.limit);
-  const cursor = req.params.cursor ? Number(req.params.cursor) : null;
+router.get("/accounts", requireQuery(["page", "limit"]), async (req, res) => {
+  const { limit } = req.query;
 
   if (!limit || limit < 1) {
     return res.status(400).json("Limit must be a positive number.");
   }
 
   try {
-    res.status(200).json(await getAccounts(limit, cursor));
+    res.status(200).json(await getAccounts(req.query));
   } catch (error) {
+    console.log(error);
     res.status(400).json(error.detail);
   }
 });

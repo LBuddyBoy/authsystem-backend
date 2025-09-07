@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import db from "#db/client";
 import { getDefaultRole } from "./roles.js";
+import { isValid } from "#util/util";
 
 export const ACCOUNT_RETURNS = `id, username, email, role_id, first_name, last_name, created_at, avatar_url`;
 export const ROLE_RETURNS = `id, name, weight, icon, is_default, is_staff, permissions, inheritance`;
@@ -12,6 +13,14 @@ export const MAPPED_ACCOUNT_RETURNS = (identifier) =>
 export const MAPPED_ROLE_RETURNS = ROLE_RETURNS.split(", ")
   .map((s) => "r." + s + " AS role_" + s)
   .toString();
+
+const ALLOWED_FIELDS = [
+  "username",
+  "email",
+  "first_name",
+  "last_name",
+  "role_id",
+];
 
 /**
  *
@@ -43,12 +52,7 @@ export async function createAccount({ username, email, password, role_id }) {
 
     const {
       rows: [account],
-    } = await db.query(SQL, [
-      username,
-      email,
-      password,
-      role_id
-    ]);
+    } = await db.query(SQL, [username, email, password, role_id]);
 
     return account;
   } catch (error) {
@@ -124,79 +128,51 @@ export async function getAccountById(id) {
 
 /**
  *
- * @param field
- * @param value
- * @returns
- */
-export async function getAccountsByField(field, value) {
-  const allowedFields = [
-    "username",
-    "email",
-    "first_name",
-    "last_name",
-    "role_id",
-  ];
-
-  if (!allowedFields.includes(field)) {
-    throw new Error("Invalid search field");
-  }
-
-  const SQL = `
-  SELECT
-  accounts.*,
-  row_to_json(roles) AS role
-  FROM accounts
-  JOIN roles ON accounts.role_id = roles.id
-  WHERE accounts.${field} ILIKE $1
-  ORDER BY accounts.id
-  `;
-
-  const { rows } = await db.query(SQL, [`%${value}%`]);
-
-  return rows;
-}
-
-/**
- *
  * Fetches a paginated list of accounts from the database using cursor-based pagination.
  *
  * @param limit The maximum number of accounts to return.
  * @param cursor The account ID to start after; use null or 0 to start from the beginning.
- * @returns An object of the accounts found and the next cursor for the next page
+ * @returns An array of the accounts found and the next cursor for the next page
  */
-export async function getAccounts(limit, cursor) {
-  let SQL, params;
+export async function getAccounts({ limit, page, searchField, searchValue }) {
+  const whereClauses = [];
+  const params = [limit];
 
-  if (cursor) {
-    SQL = `
-      SELECT 
-      accounts.*,
-      row_to_json(roles) AS role
-      FROM accounts
-      JOIN roles ON accounts.role_id = roles.id
-      WHERE accounts.id > $1
-      ORDER BY accounts.id
-      LIMIT $2
-    `;
-    params = [cursor, limit];
-  } else {
-    SQL = `
-      SELECT 
-      accounts.*,
-      row_to_json(roles) AS role
-      FROM accounts
-      JOIN roles ON accounts.role_id = roles.id
-      ORDER BY accounts.id
-      LIMIT $1
-    `;
-    params = [limit];
+  if (page) {
+    params.push(page);
+    whereClauses.push(`accounts.id > $${params.length}`);
   }
+
+  if (
+    searchField &&
+    searchValue &&
+    isValid(searchField) &&
+    isValid(searchValue)
+  ) {
+    if (!ALLOWED_FIELDS.includes(searchField)) {
+      throw new Error("Invalid search field");
+    }
+
+    params.push(`%${searchValue}%`);
+    whereClauses.push(`accounts.${searchField} ILIKE $${params.length}`);
+  }
+
+  const SQL = `
+    SELECT 
+      accounts.*,
+      row_to_json(roles) AS role
+    FROM accounts
+    JOIN roles ON accounts.role_id = roles.id
+    ${whereClauses.length > 0 ? "WHERE " + whereClauses.join(" AND ") : ""}
+    ORDER BY accounts.id
+    LIMIT $1
+  `;
 
   const { rows } = await db.query(SQL, params);
 
   return {
     accounts: rows,
-    nextCursor: rows.length > 0 ? rows[rows.length - 1].id : null,
+    nextPage: rows.length > 0 ? rows[rows.length - 1].id : null,
   };
 }
 
